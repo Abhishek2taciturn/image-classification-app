@@ -199,8 +199,23 @@
                 method: 'POST',
                 body: formData
             })
-            .then(response => response.json())
+            .then(async response => {
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    throw new Error('Server returned non-JSON response');
+                }
+                
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.details || data.error || 'Error processing image');
+                }
+                return data;
+            })
             .then(data => {
+                if (!data || !data.class || typeof data.confidence !== 'number') {
+                    throw new Error('Invalid response format from server');
+                }
+                
                 loading.classList.add('hidden');
                 result.classList.remove('hidden');
                 
@@ -211,8 +226,9 @@
                 predictionResult.innerHTML = createPredictionBar(data.class, data.confidence);
             })
             .catch(error => {
+                console.error('Error:', error);
                 loading.classList.add('hidden');
-                alert('Error processing image: ' + error.message);
+                alert(error.message || 'Error processing image. Please try again.');
             });
         }
     </script>
