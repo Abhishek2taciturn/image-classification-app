@@ -173,7 +173,7 @@
             `;
         }
 
-        function handleFile(file) {
+        async function handleFile(file) {
             if (!file.type.startsWith('image/')) {
                 alert('Please upload an image file');
                 return;
@@ -195,27 +195,29 @@
             loading.classList.remove('hidden');
             result.classList.add('hidden');
 
-            fetch('/predict', {
-                method: 'POST',
-                body: formData
-            })
-            .then(async response => {
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    throw new Error('Server returned non-JSON response');
+            try {
+                // First check if server is running
+                const testResponse = await fetch('/test');
+                if (!testResponse.ok) {
+                    throw new Error('Server is not responding properly');
                 }
-                
-                const data = await response.json();
+
+                // Then make the prediction request
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
                 if (!response.ok) {
-                    throw new Error(data.details || data.error || 'Error processing image');
+                    const errorData = await response.json();
+                    throw new Error(errorData.details || errorData.error || 'Error processing image');
                 }
-                return data;
-            })
-            .then(data => {
+
+                const data = await response.json();
                 if (!data || !data.class || typeof data.confidence !== 'number') {
                     throw new Error('Invalid response format from server');
                 }
-                
+
                 loading.classList.add('hidden');
                 result.classList.remove('hidden');
                 
@@ -224,12 +226,11 @@
                 
                 // Add prediction
                 predictionResult.innerHTML = createPredictionBar(data.class, data.confidence);
-            })
-            .catch(error => {
+            } catch (error) {
                 console.error('Error:', error);
                 loading.classList.add('hidden');
                 alert(error.message || 'Error processing image. Please try again.');
-            });
+            }
         }
     </script>
 </body>
